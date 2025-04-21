@@ -1,0 +1,15 @@
+{
+    "baseUri": "http://localhost:3000",
+    "port": 3000,
+    "domain": "localhost",
+    "mode": "production",
+    "version": "1.0.0",
+    "ogTitle": "DracoPanel",
+    "ogDescription": "This is an instance of the DracoPanel - learn more at github.com/draco-labes",
+    "discord": {
+        "clientId": "YOUR_DISCORD_CLIENT_ID",
+        "clientSecret": "YOUR_DISCORD_CLIENT_SECRET",
+        "callbackURL": "http://localhost:3000/auth/discord/callback",
+        "useLocal": true
+    }
+} 

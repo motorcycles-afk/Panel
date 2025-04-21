@@ -1,0 +1,1022 @@
+<%- include('../components/template') %>
+<script src="https://unpkg.com/axios/dist/axios.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xterm/3.14.5/xterm.min.js"
+    integrity="sha512-2PRgAav8Os8vLcOAh1gSaDoNLe1fAyq8/G3QSdyjFFD+OqNjLeHE/8q4+S4MEZgPsuo+itHopj+hJvqS8XUQ8A=="
+    crossorigin="anonymous" referrerpolicy="no-referrer"></script>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/xterm/3.14.5/xterm.min.css"
+    integrity="sha512-iLYuqv+v/P4u9erpk+KM83Ioe/l7SEmr7wB6g+Kg1qmEit8EShDKnKtLHlv2QXUp7GGJhmqDI+1PhJYLTsfb8w=="
+    crossorigin="anonymous" referrerpolicy="no-referrer" />
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xterm/3.14.5/addons/attach/attach.min.js"
+    integrity="sha512-43J76SR5UijcuJTzs73z8NpkyWon8a8EoV+dX6obqXW7O26Yb268H2vP6EiJjD7sWXqxS3G/YOqPyyLF9fmqgA=="
+    crossorigin="anonymous" referrerpolicy="no-referrer"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xterm/3.14.5/addons/fit/fit.min.js"
+    integrity="sha512-+wh8VA1djpWk3Dj9/IJDu6Ufi4vVQ0zxLv9Vmfo70AbmYFJm0z3NLnV98vdRKBdPDV4Kwpi7EZdr8mDY9L8JIA=="
+    crossorigin="anonymous" referrerpolicy="no-referrer"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/3.7.0/chart.min.js"></script>
+
+<style>
+    /* Pterodactyl-inspired base styles */
+    :root {
+        --primary: #6777ef;
+        --primary-hover: #5166ea;
+        --secondary: #cdd3d8;
+        --success: #47c363;
+        --danger: #fc544b;
+        --warning: #ffa426;
+        --info: #3abaf4;
+        --dark: #191d21;
+        --light: #e3eaef;
+        --gray: #6c757d;
+        --gray-dark: #343a40;
+        --bg-color: #1a1a2e;
+        --sidebar-bg: #0f0f23;
+        --card-bg: #16213e;
+        --card-border: rgba(255, 255, 255, 0.05);
+    }
+    
+    body {
+        background-color: var(--bg-color);
+        color: #d8dee9;
+        font-family: 'Rubik', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+    }
+    
+    /* Cards */
+    .card {
+        background-color: var(--card-bg);
+        border: 1px solid var(--card-border);
+        border-radius: 6px;
+        box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+        margin-bottom: 1.5rem;
+    }
+    
+    .card-header {
+        background-color: rgba(0, 0, 0, 0.1);
+        border-bottom: 1px solid var(--card-border);
+        padding: 1rem 1.5rem;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+    }
+    
+    .card-title {
+        font-weight: 600;
+        font-size: 1.1rem;
+        margin: 0;
+        color: #fff;
+    }
+    
+    .card-body {
+        padding: 1.5rem;
+    }
+    
+    /* Buttons */
+    .btn {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        font-weight: 500;
+        text-align: center;
+        white-space: nowrap;
+        vertical-align: middle;
+        user-select: none;
+        border: 1px solid transparent;
+        padding: 0.5rem 1rem;
+        font-size: 0.875rem;
+        line-height: 1.5;
+        border-radius: 4px;
+        transition: all 0.2s ease-in-out;
+    }
+    
+    .btn-sm {
+        padding: 0.25rem 0.5rem;
+        font-size: 0.75rem;
+    }
+    
+    .btn-primary {
+        background-color: var(--primary);
+        color: white;
+    }
+    
+    .btn-primary:hover {
+        background-color: var(--primary-hover);
+        color: white;
+    }
+    
+    .btn-success {
+        background-color: var(--success);
+        color: white;
+    }
+    
+    .btn-danger {
+        background-color: var(--danger);
+        color: white;
+    }
+    
+    .btn-warning {
+        background-color: var(--warning);
+        color: white;
+    }
+    
+    .btn-info {
+        background-color: var(--info);
+        color: white;
+    }
+    
+    /* Terminal */
+    .terminal-container {
+        background-color: #0a0a1a;
+        border-radius: 4px;
+        border: 1px solid rgba(255, 255, 255, 0.05);
+        min-height: 400px;
+        position: relative;
+    }
+    
+    /* Stats */
+    .stat-card {
+        background-color: rgba(0, 0, 0, 0.2);
+        border-radius: 4px;
+        padding: 1rem;
+        border: 1px solid rgba(255, 255, 255, 0.05);
+        margin-bottom: 0.75rem;
+    }
+    
+    .stat-title {
+        font-size: 0.75rem;
+        text-transform: uppercase;
+        color: var(--secondary);
+        margin-bottom: 0.5rem;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+    }
+    
+    .stat-value {
+        font-size: 1rem;
+        font-weight: 600;
+        color: white;
+        margin-bottom: 0.25rem;
+    }
+    
+    .progress {
+        height: 6px;
+        background-color: rgba(255, 255, 255, 0.1);
+        border-radius: 3px;
+        margin-top: 0.5rem;
+        overflow: hidden;
+    }
+    
+    .progress-bar {
+        height: 100%;
+        border-radius: 3px;
+        background: linear-gradient(90deg, var(--primary), #8a63f3);
+    }
+    
+    /* Status indicators */
+    .status-badge {
+        display: inline-flex;
+        align-items: center;
+        padding: 0.25rem 0.75rem;
+        font-size: 0.75rem;
+        font-weight: 600;
+        border-radius: 50px;
+    }
+    
+    .status-online {
+        background-color: rgba(71, 195, 99, 0.1);
+        color: var(--success);
+    }
+    
+    .status-offline {
+        background-color: rgba(252, 84, 75, 0.1);
+        color: var(--danger);
+    }
+    
+    .status-starting {
+        background-color: rgba(255, 164, 38, 0.1);
+        color: var(--warning);
+        animation: pulse 2s infinite;
+    }
+    
+    /* Power buttons */
+    .power-btn {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        padding: 1rem;
+        border-radius: 4px;
+        background-color: rgba(0, 0, 0, 0.2);
+        border: 1px solid rgba(255, 255, 255, 0.05);
+        transition: all 0.2s ease;
+        cursor: pointer;
+    }
+    
+    .power-btn:hover {
+        background-color: rgba(255, 255, 255, 0.05);
+        transform: translateY(-2px);
+    }
+    
+    .power-btn svg {
+        width: 24px;
+        height: 24px;
+        margin-bottom: 0.5rem;
+    }
+    
+    .power-btn span {
+        font-size: 0.75rem;
+        color: var(--secondary);
+    }
+    
+    /* Animations */
+    @keyframes pulse {
+        0% { opacity: 0.6; }
+        50% { opacity: 1; }
+        100% { opacity: 0.6; }
+    }
+    
+    /* Layout */
+    .grid-layout {
+        display: grid;
+        grid-template-columns: 1fr;
+        gap: 1.5rem;
+    }
+    
+    @media (min-width: 1024px) {
+        .grid-layout {
+            grid-template-columns: 2fr 1fr;
+        }
+    }
+    
+    /* Alerts */
+    .alert {
+        padding: 0.75rem 1.25rem;
+        border-radius: 4px;
+        margin-bottom: 1rem;
+        display: flex;
+        align-items: flex-start;
+    }
+    
+    .alert-success {
+        background-color: rgba(71, 195, 99, 0.1);
+        border-left: 4px solid var(--success);
+        color: #b8f1c6;
+    }
+    
+    .alert-danger {
+        background-color: rgba(252, 84, 75, 0.1);
+        border-left: 4px solid var(--danger);
+        color: #ffb8b5;
+    }
+    
+    .alert-icon {
+        margin-right: 0.75rem;
+        font-size: 1.25rem;
+    }
+    
+    /* Inputs */
+    .form-input {
+        background-color: rgba(0, 0, 0, 0.3);
+        border: 1px solid rgba(255, 255, 255, 0.1);
+        border-radius: 4px;
+        padding: 0.5rem 1rem;
+        color: white;
+        width: 100%;
+        transition: all 0.2s ease;
+    }
+    
+    .form-input:focus {
+        outline: none;
+        border-color: var(--primary);
+        box-shadow: 0 0 0 3px rgba(103, 119, 239, 0.2);
+    }
+    
+    /* Utility classes */
+    .text-muted {
+        color: var(--secondary) !important;
+    }
+    
+    .text-primary {
+        color: var(--primary) !important;
+    }
+    
+    .text-success {
+        color: var(--success) !important;
+    }
+    
+    .text-danger {
+        color: var(--danger) !important;
+    }
+    
+    .text-warning {
+        color: var(--warning) !important;
+    }
+    
+    .text-info {
+        color: var(--info) !important;
+    }
+    
+    .bg-primary {
+        background-color: var(--primary) !important;
+    }
+    
+    .bg-success {
+        background-color: var(--success) !important;
+    }
+    
+    .bg-danger {
+        background-color: var(--danger) !important;
+    }
+    
+    .bg-warning {
+        background-color: var(--warning) !important;
+    }
+    
+    .bg-info {
+        background-color: var(--info) !important;
+    }
+    
+    /* Server details */
+    .server-details {
+        margin-bottom: 1.5rem;
+    }
+    
+    .server-details-title {
+        font-size: 0.75rem;
+        font-weight: 600;
+        text-transform: uppercase;
+        color: var(--secondary);
+        margin-bottom: 1rem;
+        letter-spacing: 0.5px;
+    }
+    
+    .server-detail {
+        display: flex;
+        align-items: center;
+        margin-bottom: 0.75rem;
+        font-size: 0.875rem;
+    }
+    
+    .server-detail-icon {
+        margin-right: 0.75rem;
+        color: var(--primary);
+    }
+    
+    /* Stats container */
+    .stats-container {
+        margin-top: 1.5rem;
+    }
+</style>
+
+<script>
+    function showAlert(type, title, message) {
+        const alertContainer = document.getElementById('alert-container');
+        const alertElement = document.createElement('div');
+        alertElement.className = `alert alert-${type}`;
+        alertElement.innerHTML = `
+            <div class="alert-icon">
+                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <circle cx="12" cy="12" r="10"></circle>
+                    <line x1="12" y1="8" x2="12" y2="12"></line>
+                    <line x1="12" y1="16" x2="12.01" y2="16"></line>
+                </svg>
+            </div>
+            <div>
+                <h4 class="font-semibold">${title}</h4>
+                <p class="text-sm mt-1">${message}</p>
+            </div>
+        `;
+        alertContainer.appendChild(alertElement);
+        setTimeout(() => {
+            alertElement.classList.add('opacity-0');
+            setTimeout(() => alertContainer.removeChild(alertElement), 300);
+        }, 5000);
+    }
+    
+    const eulaPopupHTML = `
+        <div id="eula-popup" class="fixed inset-0 bg-black/70 backdrop-blur-sm hidden items-center justify-center z-50 p-4">
+            <div class="bg-gray-800 p-6 rounded-lg shadow-xl max-w-md w-full border border-gray-700">
+                <div class="flex items-center mb-4">
+                    <div class="bg-blue-500/10 p-2 rounded-lg mr-3">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6 text-blue-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
+                        </svg>
+                    </div>
+                    <h2 class="text-xl font-bold text-white">Minecraft EULA</h2>
+                </div>
+                <p class="text-gray-300 mb-6 text-sm">By continuing, you agree to the Minecraft End User License Agreement (EULA). You must accept the EULA to run this server.</p>
+                <div class="flex justify-end space-x-3">
+                    <button id="decline-eula" class="px-4 py-2 bg-gray-700 hover:bg-gray-600 text-white rounded transition-colors duration-200">
+                        Decline
+                    </button>
+                    <button id="accept-eula" class="px-4 py-2 bg-blue-600 hover:bg-blue-500 text-white rounded transition-colors duration-200 flex items-center">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 mr-1" viewBox="0 0 20 20" fill="currentColor">
+                            <path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd" />
+                        </svg>
+                        Accept
+                    </button>
+                </div>
+            </div>
+        </div>
+    `;
+
+    document.body.insertAdjacentHTML('beforeend', eulaPopupHTML);
+
+    function showEulaPopup() {
+        const popup = document.getElementById('eula-popup');
+        popup.classList.remove('hidden');
+        popup.classList.add('flex');
+    }
+
+    function hideEulaPopup() {
+        const popup = document.getElementById('eula-popup');
+        popup.classList.add('hidden');
+        popup.classList.remove('flex');
+    }
+
+    document.getElementById('accept-eula').addEventListener('click', acceptEula);
+    document.getElementById('decline-eula').addEventListener('click', hideEulaPopup);
+
+    async function acceptEula() {
+        const instanceId = "<%= req.params.id %>" || '';
+        try {
+            await fetch(`/instance/<%= req.params.id %>/imagefeatures/eula`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'text/plain',
+                }
+            });
+
+            hideEulaPopup();
+            showAlert('success', 'EULA Accepted', 'The Minecraft EULA has been accepted. You can now start your server.');
+        } catch (error) {
+            console.error('Error accepting EULA:', error);
+            showAlert('danger', 'EULA Acceptance Failed', 'An error occurred while accepting the EULA. Please try again.');
+        }
+    }
+</script>
+
+<main class="container mx-auto px-4 py-6">
+    <%- include('../components/instance') %>
+    <% if (Array.isArray(files) && files.length > 0 && !files.some(file => file.name === 'eula.txt')) { %>
+        <% if (instance.imageData.features && instance.imageData.features.includes('eula')) { %>
+            <script>
+                document.addEventListener('DOMContentLoaded', () => {
+                    showEulaPopup();
+                });
+            </script>
+        <% } %>
+    <% } %>
+    
+    <% if (instance.Image == "ghcr.io/hydrenoffical/hydravm:latest") { %>
+        <div id="alert-container" class="mb-4">
+            <div class="alert alert-info">
+                <div class="alert-icon">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"></path>
+                        <polyline points="9 22 9 12 15 12 15 22"></polyline>
+                    </svg>
+                </div>
+                <div>
+                    <h4 class="font-semibold">Ubuntu 22.04 VM</h4>
+                    <p class="text-sm mt-1">You're running an Ubuntu 22.04 VM. Default credentials: <code class="bg-black/20 px-1.5 py-0.5 rounded">root:root</code></p>
+                </div>
+            </div>
+        </div>
+    <% } else { %>
+        <div id="alert-container" class="mb-4"></div>
+    <% } %>
+    
+    <div class="grid-layout gap-6">
+        <!-- Main Content Column -->
+        <div class="space-y-6">
+            <!-- Console Card -->
+            <div class="card">
+                <div class="card-header">
+                    <h3 class="card-title">Server Console</h3>
+                    <button onclick="clearTerminal()" class="btn btn-sm btn-danger">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="mr-1">
+                            <polyline points="3 6 5 6 21 6"></polyline>
+                            <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
+                        </svg>
+                        Clear
+                    </button>
+                </div>
+                <div class="card-body">
+                    <div id="terminal" class="terminal-container p-4 mb-4"></div>
+                    
+                    <div class="flex items-center gap-3">
+                        <div class="relative flex-grow">
+                            <input type="text" 
+                                   id="console-input" 
+                                   class="form-input" 
+                                   placeholder="Enter command..." 
+                                   required>
+                            <div class="absolute inset-y-0 right-0 flex items-center pr-3 pointer-events-none text-gray-400">
+                                <span class="text-xs">ENTER</span>
+                            </div>
+                        </div>
+                    
+                        <button onclick="sendCommand()" 
+                                class="btn btn-primary flex items-center gap-2">
+                            <span>Send</span>
+                            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                <line x1="22" y1="2" x2="11" y2="13"></line>
+                                <polygon points="22 2 15 22 11 13 2 9 22 2"></polygon>
+                            </svg>
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Sidebar Column -->
+        <div class="space-y-6">
+            <!-- Server Control Card -->
+            <div class="card">
+                <div class="card-header">
+                    <h3 class="card-title"><%= instance.Name %></h3>
+                    <span id="status" class="status-badge status-offline">OFFLINE</span>
+                </div>
+                <div class="card-body">
+                    <!-- Power Controls -->
+                    <div class="grid grid-cols-2 gap-3 mb-6">
+                        <button id="startButton" class="power-btn" title="Start Server">
+                            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z" />
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                            </svg>
+                            <span>Start</span>
+                        </button>
+                        
+                        <button id="restartButton" class="power-btn" title="Restart Server">
+                            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                            </svg>
+                            <span>Restart</span>
+                        </button>
+                        
+                        <button id="stopButton" class="power-btn" title="Stop Server">
+                            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 10a1 1 0 011-1h4a1 1 0 011 1v4a1 1 0 01-1 1h-4a1 1 0 01-1-1v-4z" />
+                            </svg>
+                            <span>Stop</span>
+                        </button>
+                        
+                        <button onclick="window.location.href='/instance/<%= req.params.id %>/plugins'" class="power-btn" title="Server Settings">
+                            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                            </svg>
+                            <span>Plugins</span>
+                        </button>
+                    </div>
+                    
+                    <!-- Server Info -->
+                    <div class="server-details">
+                        <h4 class="server-details-title">Server Details</h4>
+                        <div class="space-y-3">
+                            <div class="server-detail">
+                                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="server-detail-icon">
+                                    <rect x="2" y="3" width="20" height="14" rx="2" ry="2"></rect>
+                                    <line x1="8" y1="21" x2="16" y2="21"></line>
+                                    <line x1="12" y1="17" x2="12" y2="21"></line>
+                                </svg>
+                                <span id="node"><%= instance.Node.name %></span>
+                            </div>
+                            
+                            <div class="server-detail">
+                            <div class="server-detail">
+                                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="server-detail-icon">
+                                    <circle cx="12" cy="12" r="10"></circle>
+                                    <polygon points="16.24 7.76 14.12 14.12 7.76 16.24 9.88 9.88 16.24 7.76"></polygon>
+                                </svg>
+                                <span id="ip"><%= instance.Node.address %>:<%= instance.Primary %></span>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- Stats Container -->
+                    <div class="stats-container">
+                        <div id="cpuUsageContainer" class="stat-card">
+                            <div class="stat-title">
+                                <span>CPU Usage</span>
+                                <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                    <rect x="4" y="4" width="16" height="16" rx="2" ry="2"></rect>
+                                    <rect x="9" y="9" width="6" height="6"></rect>
+                                    <line x1="9" y1="1" x2="9" y2="4"></line>
+                                    <line x1="15" y1="1" x2="15" y2="4"></line>
+                                    <line x1="9" y1="20" x2="9" y2="23"></line>
+                                    <line x1="15" y1="20" x2="15" y2="23"></line>
+                                    <line x1="20" y1="9" x2="23" y2="9"></line>
+                                    <line x1="20" y1="14" x2="23" y2="14"></line>
+                                    <line x1="1" y1="9" x2="4" y2="9"></line>
+                                    <line x1="1" y1="14" x2="4" y2="14"></line>
+                                </svg>
+                            </div>
+                            <div class="stat-value" id="cpuUsage">0%</div>
+                            <div class="progress">
+                                <div id="cpuProgressBar" class="progress-bar" style="width: 0%"></div>
+                            </div>
+                        </div>
+                    
+                        <div id="ramUsageContainer" class="stat-card">
+                            <div class="stat-title">
+                                <span>Memory Usage</span>
+                                <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                    <rect x="4" y="4" width="16" height="16" rx="2" ry="2"></rect>
+                                    <rect x="9" y="9" width="6" height="6"></rect>
+                                </svg>
+                            </div>
+                            <div class="stat-value" id="ramUsage">0 MB</div>
+                            <div class="progress">
+                                <div id="ramProgressBar" class="progress-bar" style="width: 0%"></div>
+                            </div>
+                        </div>
+                    
+                        <div id="diskUsageContainer" class="stat-card">
+                            <div class="stat-title">
+                                <span>Disk Usage</span>
+                                <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                    <circle cx="12" cy="12" r="10"></circle>
+                                    <circle cx="12" cy="12" r="4"></circle>
+                                    <line x1="4.93" y1="4.93" x2="9.17" y2="9.17"></line>
+                                    <line x1="14.83" y1="14.83" x2="19.07" y2="19.07"></line>
+                                    <line x1="14.83" y1="9.17" x2="19.07" y2="4.93"></line>
+                                    <line x1="14.83" y1="9.17" x2="18.36" y2="5.64"></line>
+                                    <line x1="4.93" y1="19.07" x2="9.17" y2="14.83"></line>
+                                </svg>
+                            </div>
+                            <div class="stat-value" id="diskUsage">0 MB</div>
+                            <div class="progress">
+                                <div id="diskProgressBar" class="progress-bar" style="width: 0%"></div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</main>
+
+<!-- Terminal and WebSocket Scripts -->
+<script>
+    const baseTheme = {
+        foreground: '#d8dee9',
+        background: 'rgba(0, 0, 0, 0)',
+        selection: 'rgba(93, 165, 213, 0.2)',
+        black: '#1E1E1D',
+        brightBlack: '#262625',
+        red: '#E54B4B',
+        green: '#9ECE58',
+        yellow: '#FAED70',
+        blue: '#396FE2',
+        magenta: '#BB80B3',
+        cyan: '#2DDAFD',
+        white: '#d0d0d0',
+        brightBlack: 'rgba(255, 255, 255, 0.2)',
+        brightRed: '#FF5370',
+        brightGreen: '#C3E88D',
+        brightYellow: '#FFCB6B',
+        brightBlue: '#82AAFF',
+        brightMagenta: '#C792EA',
+        brightCyan: '#89DDFF',
+        brightWhite: '#ffffff',
+    };
+    
+    const protocol = window.location.protocol === 'https:' ? 'wss' : 'ws';
+    const instanceId = '<%= req.params.id %>';
+    const maxCommands = 10;
+    let commandHistory = [];
+    let currentCommandIndex = -1;
+    let term;
+    let ws;
+    
+    function initWebSocket() {
+        const port = window.location.port ? `:${window.location.port}` : '';
+        ws = new WebSocket(`${protocol}://${window.location.hostname}${port}/console/${instanceId}`);
+        initStatsWebSocket();
+        ws.onopen = () => console.log('WebSocket connected!');
+        ws.onmessage = handleWebSocketMessage;
+        ws.onclose = () => {
+            console.log('WebSocket connection closed, attempting to reconnect...');
+            setTimeout(initWebSocket, 1000);
+        };
+        ws.onerror = (error) => {
+            console.log('WebSocket encountered an error:', error, 'Attempting to reconnect...');
+            setTimeout(initWebSocket, 1000);
+        };
+    }
+    
+    function handleWebSocketMessage(msg) {
+        const lines = msg.data.split('\n');
+        let isFirstLine = true;
+        let previousLineWasEmpty = false;
+    
+        lines.forEach(line => {
+            const trimmedLine = line.trim();
+            if (trimmedLine === '' && previousLineWasEmpty) return;
+            
+            if (!isFirstLine && !previousLineWasEmpty) {
+                term.write('\r\n');
+            }
+    
+            term.write('\x1b[0m' + trimmedLine);
+    
+            if (trimmedLine.includes("state:")) {
+                term.write('\r\n\u001b[1m\u001b[33m[PANEL] \u001b[0mreconnecting socket, hold on...\r\n');
+                term.clear();
+                ws.close();
+            }
+            
+            const instancestartedmessage = "<%= instance.imageData.StartedMessage %>" || 'For help, type "help"';
+            if (trimmedLine.includes(instancestartedmessage)) {
+                term.write('\n\u001b[1m\u001b[33mcontainer@hydra~ \u001b[0mServer marked as Started\r\n');
+                updateStatus({ memory_stats: { usage: 100 * 1024 * 1024 } }); // Simulate online status
+            }
+
+            if (trimmedLine.includes("Container not found")) {
+                window.location.href = '/instances?err=CONTAINER_NOT_FOUND'
+            } 
+            
+            let alertShown = false;
+            if (trimmedLine.includes("HydraDaemon instance appears to be down")) {
+                if (!alertShown) {
+                    showAlert('danger', 'Node Connection Failed', 'Unable to establish a connection with the node. Please check the network or server status and try again.');
+                    alertShown = true;
+                }
+                ws.close();
+            }
+    
+            isFirstLine = false;
+            previousLineWasEmpty = (trimmedLine === '');
+        });
+    }
+    
+    function clearTerminal() {
+        if (term) {
+            term.clear();
+            term.write('\u001b[1m\u001b[33m[PANEL] \u001b[0mTerminal cleared\r\n');
+        }
+    }
+       
+    function setupTerminal() {
+        term = new Terminal({
+            disableStdin: true,
+            allowProposedApi: true,
+            cursorStyle: 'underline',
+            rows: 20,
+            cols: 100,
+            fontFamily: 'Menlo, monospace',
+            theme: baseTheme,
+            allowTransparency: true,
+            fontSize: 12,
+            lineHeight: 1.0,
+        });
+
+        const terminalContainer = document.getElementById('terminal');
+        term.open(terminalContainer);
+
+        const originalWrite = term.write.bind(term);
+        term.write = (data) => {
+            const lines = data.split(/\r?\n/);
+            const isAdmin = "<%= req.user.admin %>";
+            const filteredData = lines
+                .filter(line => isAdmin || !line.includes("Unpacking"))
+                .join('\r\n');
+            originalWrite(filteredData);
+        };
+    }
+
+    function sendCommand() {
+        const inputElement = document.getElementById('console-input');
+        const command = inputElement.value.trim();
+        if (command && ws) {
+            ws.send(JSON.stringify({
+                event: 'cmd',
+                command: command,
+                containerId: instanceId
+            }));
+    
+            if (commandHistory.length === maxCommands) {
+                commandHistory.shift();
+            }
+            commandHistory.push(command);
+            currentCommandIndex = commandHistory.length;
+    
+            inputElement.value = '';
+        }
+    }
+    
+    function handleKeyUp(event) {
+        const input = document.getElementById('console-input');
+        
+        if (event.key === 'ArrowUp') {
+            if (currentCommandIndex > 0) {
+                currentCommandIndex--;
+                input.value = commandHistory[currentCommandIndex];
+            }
+            event.preventDefault();
+        } else if (event.key === 'ArrowDown') {
+            if (currentCommandIndex < commandHistory.length - 1) {
+                currentCommandIndex++;
+                input.value = commandHistory[currentCommandIndex];
+            } else {
+                currentCommandIndex = commandHistory.length;
+                input.value = '';
+            }
+            event.preventDefault();
+        } else if (event.key === 'Enter') {
+            const command = input.value.trim();
+            if (command) {
+               sendCommand()
+            }
+            event.preventDefault();
+        }
+    }
+
+    function initStatsWebSocket() {
+        const statsWs = new WebSocket(`${protocol}://${window.location.hostname}:${window.location.port}/stats/${instanceId}`);
+        
+        statsWs.onmessage = event => {
+            const stats = JSON.parse(event.data);
+            if (stats.error) {
+                console.error('Error fetching stats:', stats.error);
+                return;
+            }
+    
+            updateRamUsage(stats);
+            updateCpuUsage(stats);
+            updateDiskUsage(stats);
+            updateStatus(stats);
+        };
+    }
+    
+    function formatBytes(bytes, decimals = 2) {
+        if (bytes === 0) return '0 Bytes';
+        const k = 1024;
+        const dm = decimals < 0 ? 0 : decimals;
+        const sizes = ['Bytes', 'KB', 'MB', 'GB', 'TB', 'PB', 'EB', 'ZB', 'YB'];
+        const i = Math.floor(Math.log(bytes) / Math.log(k));
+        return parseFloat((bytes / Math.pow(k, i)).toFixed(dm)) + ' ' + sizes[i];
+    }
+    
+    function updateRamUsage(stats) {
+        const ramStatsUsage = stats.memory_stats.usage || 0;
+        const ramStatsLimit = stats.memory_stats.limit || 0;
+
+        const ramUsageRaw = ramStatsUsage / 1024 / 1024 || 0;
+        const ramLimitRaw = ramStatsLimit / 1024 / 1024 || 0;
+        const ramUsagePercent = (ramLimitRaw > 0) ? ((ramUsageRaw / ramLimitRaw) * 100).toFixed(2) : '0.00';
+
+        document.getElementById('ramUsage').textContent = `${ramUsagePercent}% (${formatBytes(ramStatsUsage)} / ${formatBytes(ramStatsLimit)})`;
+        const ramProgressBar = document.getElementById('ramProgressBar');
+        ramProgressBar.style.width = ramUsagePercent + '%';
+        
+        const ramUsageContainer = document.getElementById('ramUsageContainer');
+        if (ramUsagePercent >= 90) {
+            ramUsageContainer.classList.add('bg-danger/10');
+            ramProgressBar.classList.remove('progress-bar');
+            ramProgressBar.classList.add('bg-danger');
+        } else {
+            ramUsageContainer.classList.remove('bg-danger/10');
+            ramProgressBar.classList.remove('bg-danger');
+            ramProgressBar.classList.add('progress-bar');
+        }
+    }
+    
+    function updateCpuUsage(stats) {
+        const cpuDelta = stats.cpu_stats.cpu_usage.total_usage - stats.precpu_stats.cpu_usage.total_usage;
+        const systemCpuDelta = stats.cpu_stats.system_cpu_usage - stats.precpu_stats.system_cpu_usage;
+        let cpuUsagePercent = ((cpuDelta / systemCpuDelta) * 100).toFixed(2);
+
+        if (isNaN(cpuUsagePercent)) {
+            cpuUsagePercent = 0;
+        }
+
+        const total_cpu = '<%= instance.Cpu %>' + '00';
+        document.getElementById('cpuUsage').textContent = `${cpuUsagePercent}% / ${total_cpu}%`;
+
+        const cpuUsageContainer = document.getElementById('cpuUsageContainer');
+        const cpuProgressbar = document.getElementById('cpuProgressBar');
+        cpuProgressbar.style.width = cpuUsagePercent + '%';
+        
+        if (parseFloat(cpuUsagePercent) >= 90) {
+            cpuUsageContainer.classList.add('bg-danger/10');
+            cpuProgressbar.classList.remove('progress-bar');
+            cpuProgressbar.classList.add('bg-danger');
+        } else {
+            cpuUsageContainer.classList.remove('bg-danger/10');
+            cpuProgressbar.classList.remove('bg-danger');
+            cpuProgressbar.classList.add('progress-bar');
+        }
+    }
+
+    function updateDiskUsage(stats) {
+        const diskUsageRaw = parseFloat(stats.volumeSize);
+        const diskLimitRaw = <%= instance.Disk %> * 1024 || 10 * 1024; 
+        const diskUsagePercent = (diskUsageRaw / diskLimitRaw * 100).toFixed(2);
+
+        document.getElementById('diskUsage').textContent = `${diskUsagePercent}% (${formatBytes(diskUsageRaw * 1024 * 1024)} / ${formatBytes(diskLimitRaw * 1024 * 1024)})`;
+
+        const diskUsageContainer = document.getElementById('diskUsageContainer');
+        const diskProgressbar = document.getElementById('diskProgressBar');
+        diskProgressbar.style.width = diskUsagePercent + '%';
+        
+        if (parseFloat(diskUsagePercent) >= 90) {
+            diskUsageContainer.classList.add('bg-danger/10');
+            diskProgressbar.classList.remove('progress-bar');
+            diskProgressbar.classList.add('bg-danger');
+        } else {
+            diskUsageContainer.classList.remove('bg-danger/10');
+            diskProgressbar.classList.remove('bg-danger');
+            diskProgressbar.classList.add('progress-bar');
+        }
+    }
+    
+    function updateStatus(stats) {
+        const statusElement = document.getElementById('status');
+        const ramUsageRaw = stats.memory_stats.usage / 1024 / 1024 || 0;
+        
+        if (ramUsageRaw > 1) {
+            statusElement.textContent = 'ONLINE';
+            statusElement.className = 'status-badge status-online';
+        } else {
+            statusElement.textContent = 'OFFLINE';
+            statusElement.className = 'status-badge status-offline';
+        }
+    }
+
+    // Power actions
+    ['start', 'stop', 'restart'].forEach(action => {
+        document.getElementById(`${action}Button`).addEventListener('click', function () {
+            if (ws) {
+                if (action === 'stop') {
+                    ws.send(JSON.stringify({
+                        event: 'cmd',
+                        command: '<%= instance.imageData.StopCommand %>' || 'stop',
+                        containerId: instanceId
+                    }));
+                } else if (action === 'restart') {
+                    ws.send(JSON.stringify({
+                        event: `power:restart`,
+                        containerId: instanceId
+                    }));
+                } else {
+                    ws.send(JSON.stringify({
+                        event: `power:${action}`,
+                        containerId: instanceId
+                    }));
+                }
+
+                showAlert('success', 'Action Executed', `Server ${action} command sent. Please wait...`);
+                
+                // Update status to "starting" immediately
+                if (action === 'start' || action === 'restart') {
+                    const statusElement = document.getElementById('status');
+                    statusElement.textContent = 'STARTING';
+                    statusElement.className = 'status-badge status-starting';
+                }
+                
+                ws.close();
+            }
+
+            const friendlyMessages = {
+                "Checking server disk space usage, this could take a few seconds...": 
+                    "\u001b[1m\u001b[33m > [HydraPanel]\x1b[0m Performing container disk usage checks...",
+                "Updating process configuration files...": 
+                    "\u001b[1m\u001b[33m > [HydraPanel]\x1b[0m Updating environment...",
+                "Ensuring file permissions are set correctly, this could take a few seconds...": 
+                    "\u001b[1m\u001b[33m > [HydraPanel]\x1b[0m Performing file permission checks...",
+                "Pulling Docker container image, this could take a few minutes to complete...": 
+                    "\u001b[1m\u001b[33m > [HydraPanel]\x1b[0m Fetching Docker image...",
+                "Finished pulling Docker container image": 
+                    "\u001b[1m\u001b[33m > [HydraPanel]\x1b[0m Completed Docker image pull!"
+            };
+
+            if (action === 'start') {
+                term.clear();
+                for (let message in friendlyMessages) {
+                    term.write(friendlyMessages[message] + '\r\n');
+                }
+            }
+        });
+    });
+
+    document.addEventListener('DOMContentLoaded', function () {
+        setupTerminal();
+        initWebSocket();
+    
+        const inputElement = document.getElementById('console-input');
+        inputElement.addEventListener('keypress', function (event) {
+            if (event.key === 'Enter') {
+                sendCommand();
+            }
+        });
+    
+        inputElement.addEventListener('keydown', handleKeyUp);
+        initStatsWebSocket();
+    });
+</script>
+
+<%- include('../components/footer') %>

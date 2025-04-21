@@ -1,0 +1,243 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title><%= name %></title>
+    <% if (logo == true) { %>
+        <link rel="icon" href="/assets/logo.png" type="image/x-icon">
+    <% } %>
+    
+    <!-- Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:ital,wght@0,100..800;1,100..800&family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    
+    <!-- Tailwind and Alpine -->
+    <script src="https://cdn.tailwindcss.com?plugins=forms"></script>
+    <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"></script>
+
+    <style>
+        :root {
+            --sidebar-bg: rgba(23, 23, 23, 0.9);
+            --sidebar-active: rgba(79, 70, 229, 0.2);
+            --sidebar-hover: rgba(255, 255, 255, 0.05);
+            --sidebar-text: rgba(255, 255, 255, 0.8);
+            --sidebar-text-active: rgba(255, 255, 255, 0.95);
+        }
+
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #171717;
+            color: rgba(255, 255, 255, 0.8);
+        }
+
+        /* Sidebar styles */
+        .sidebar {
+            background: var(--sidebar-bg);
+            backdrop-filter: blur(12px);
+            -webkit-backdrop-filter: blur(12px);
+            border-right: 1px solid rgba(255, 255, 255, 0.05);
+        }
+
+        .sidebar-link {
+            position: relative;
+            color: var(--sidebar-text);
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            border-radius: 0.5rem;
+        }
+
+        .sidebar-link:hover {
+            background: var(--sidebar-hover);
+            color: var(--sidebar-text-active);
+            transform: translateX(4px);
+        }
+
+        .sidebar-link.active {
+            background: var(--sidebar-active);
+            color: var(--sidebar-text-active);
+            font-weight: 500;
+        }
+
+        .sidebar-link.active::before {
+            content: '';
+            position: absolute;
+            left: -8px;
+            top: 0;
+            height: 100%;
+            width: 3px;
+            background: #4f46e5;
+            border-radius: 0 3px 3px 0;
+        }
+
+        .sidebar-icon {
+            width: 20px;
+            height: 20px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: all 0.3s ease;
+        }
+
+        .sidebar-link:hover .sidebar-icon {
+            transform: scale(1.1);
+        }
+
+        .sidebar-link.active .sidebar-icon {
+            color: #818cf8;
+        }
+
+        /* User dropdown */
+        .user-dropdown {
+            backdrop-filter: blur(12px);
+            -webkit-backdrop-filter: blur(12px);
+            background: rgba(23, 23, 23, 0.8);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+        }
+
+        /* Loading animations */
+        @keyframes loading {
+            0% { width: 0%; }
+            100% { width: 100%; }
+        }
+
+        .loading-bar {
+            position: fixed;
+            top: 0;
+            left: 0;
+            height: 2px;
+            background: linear-gradient(to right, #4f46e5, #818cf8);
+            animation: loading 0.5s ease-in-out;
+            z-index: 1000;
+        }
+
+        /* Scrollbar */
+        ::-webkit-scrollbar {
+            width: 6px;
+        }
+
+        ::-webkit-scrollbar-track {
+            background: rgba(255, 255, 255, 0.05);
+        }
+
+        ::-webkit-scrollbar-thumb {
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 3px;
+        }
+
+        ::-webkit-scrollbar-thumb:hover {
+            background: rgba(255, 255, 255, 0.2);
+        }
+    </style>
+</head>
+
+<body x-data="{ sidebarOpen: false, currentPath: window.location.pathname }" @keydown.escape="sidebarOpen = false">
+    <!-- Loading bar -->
+    <div class="loading-bar"></div>
+
+    <div class="flex min-h-screen">
+        <!-- Mobile overlay -->
+        <div class="fixed inset-0 bg-black/50 z-40 md:hidden" 
+             x-show="sidebarOpen" 
+             @click="sidebarOpen = false"
+             x-transition.opacity></div>
+
+        <!-- Sidebar -->
+        <aside class="fixed inset-y-0 left-0 z-40 w-64 transform md:relative md:translate-x-0 h-screen sidebar transition-transform duration-300 ease-in-out"
+               :class="sidebarOpen ? 'translate-x-0' : '-translate-x-full'">
+            <div class="flex flex-col h-full">
+                <!-- Close button -->
+                <button @click="sidebarOpen = false"
+                    class="md:hidden absolute top-4 right-4 text-gray-400 hover:text-white">
+                    <i class="fas fa-times text-lg"></i>
+                </button>
+
+                <!-- User header -->
+                <div class="flex items-center p-4 border-b border-white/5">
+                    <div class="flex items-center gap-3 w-full">
+                        <div class="w-8 h-8 rounded-full bg-indigo-500 flex items-center justify-center text-white">
+                            <i class="fas fa-user text-sm"></i>
+                        </div>
+                        <div class="flex-1 min-w-0">
+                            <p class="text-sm font-medium truncate"><%= user.username %></p>
+                            <p class="text-xs text-gray-400 truncate">Administrator</p>
+                        </div>
+                        <a href="/auth/logout" class="text-gray-400 hover:text-white">
+                            <i class="fas fa-sign-out-alt"></i>
+                        </a>
+                    </div>
+                </div>
+
+                <!-- Navigation -->
+                <nav class="flex-1 overflow-y-auto p-2">
+                    <div class="space-y-1">
+                        <div class="px-3 pt-4 pb-1 text-xs text-gray-400 uppercase tracking-wider font-mono">Dashboard</div>
+                        
+                        <a href="../instances" class="sidebar-link flex items-center gap-3 px-3 py-2.5 text-sm"
+                           :class="{'active': currentPath.includes('/instances')}">
+                            <div class="sidebar-icon">
+                                <i class="fas fa-server"></i>
+                            </div>
+                            <span>Servers</span>
+                            <span class="ml-auto bg-indigo-500/10 text-indigo-400 text-xs px-2 py-0.5 rounded-full"></span>
+                        </a>
+                        
+                        <a href="../account" class="sidebar-link flex items-center gap-3 px-3 py-2.5 text-sm"
+                           :class="{'active': currentPath.includes('/account')}">
+                            <div class="sidebar-icon">
+                                <i class="fas fa-user-cog"></i>
+                            </div>
+                            <span>Account Settings</span>
+                        </a>
+                        
+                        <% if (req.user.admin === true) { %>
+                        <a href="/admin/overview" class="sidebar-link flex items-center gap-3 px-3 py-2.5 text-sm"
+                           :class="{'active': currentPath.includes('/admin')}">
+                            <div class="sidebar-icon">
+                                <i class="fas fa-shield-alt"></i>
+                            </div>
+                            <span>Admin Panel</span>
+                            <span class="ml-auto bg-red-500/10 text-red-400 text-xs px-2 py-0.5 rounded-full">PRO</span>
+                        </a>
+                        <% } %>
+                        
+                        <div class="px-3 pt-4 pb-1 text-xs text-gray-400 uppercase tracking-wider font-mono">Tools</div>
+                      
+
+                <!-- Sidebar footer -->
+                <div class="p-4 border-t border-white/5">
+                    <div class="flex items-center justify-between text-gray-400 text-xs">
+                        <span>v1.0.0</span>
+                        <span>© DRACO</span>
+                    </div>
+                </div>
+            </div>
+        </aside>
+
+        <!-- Main content -->
+        <div class="flex-1 flex flex-col overflow-hidden">
+            <header class="bg-[#171717] border-b border-white/5 p-4">
+                <div class="flex items-center justify-between">
+                    <button @click="sidebarOpen = !sidebarOpen" class="md:hidden text-gray-400 hover:text-white">
+                        <i class="fas fa-bars text-xl"></i>
+                    </button>
+                </div>
+            </header>
+
+    <script>
+        // Remove loading bar after animation
+        setTimeout(() => {
+            document.querySelector('.loading-bar').style.display = 'none';
+        }, 500);
+
+        // Track current path for active sidebar links
+        document.addEventListener('alpine:init', () => {
+            Alpine.data('currentPath', () => ({
+                currentPath: window.location.pathname
+            }));
+        });
+    </script>
+</body>
+</html>
