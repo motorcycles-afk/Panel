@@ -25,50 +25,22 @@ const translationMiddleware = require('./handlers/translation');
 const cookieParser = require('cookie-parser');
 const rateLimit = require('express-rate-limit');
 const theme = require('./storage/theme.json');
-
-
-const sqlite = require("better-sqlite3");
-const SqliteStore = require("better-sqlite3-session-store")(session);
-const sessionstorage = new sqlite("sessions.db");
 const { loadPlugins } = require('./plugins/loadPls.js');
-let plugins = loadPlugins(path.join(__dirname, './plugins'));
-plugins = Object.values(plugins).map(plugin => plugin.config);
 const { init } = require('./handlers/init.js');
+const SQLiteStore = require('connect-sqlite3')(session);
 
 const log = new CatLoggr();
 
-// DIRECT URL INTERCEPT - HIGHEST PRIORITY
-app.use((req, res, next) => {
-  const url = req.originalUrl || req.url;
-  
-  // Direct check for /instances or /instance URLs
-  if (url === '/instances' || url.startsWith('/instances/') || 
-      url === '/instance' || url.startsWith('/instance/')) {
-    
-    // Check if user is not authenticated
-    if (!req.isAuthenticated || !req.isAuthenticated() || !req.user) {
-      console.log(`🔒 SECURITY: Blocked direct access to ${url}`);
-      
-      // Force cookies to be cleared
-      res.clearCookie('app.session', { path: '/' });
-      res.clearCookie('connect.sid', { path: '/' });
-      res.clearCookie('sid', { path: '/' });
-      
-      // Send immediate redirect with anti-cache parameters
-      return res.redirect(`/login?blocked=true&from=${encodeURIComponent(url)}&t=${Date.now()}`);
-    }
-  }
-  
-  next();
-});
-
+// Basic middleware setup
 app.use(bodyParser.urlencoded({ extended: false }));
 app.use(bodyParser.json());
+// app.use(cookieParser()); // Temporarily disabled
 
-app.use(cookieParser())
+// Set up view engine
+app.set('view engine', 'ejs');
 
-app.use(translationMiddleware);
-
+// Rate limiter for POST requests (Temporarily disabled)
+/*
 const postRateLimiter = rateLimit({
   windowMs: 60 * 100,
   max: 6,
@@ -82,42 +54,78 @@ app.use((req, res, next) => {
     next();
   }
 });
+*/
 
-app.set('view engine', 'ejs');
-app.use(
-  session({
-    store: new SqliteStore({
-      client: sessionstorage,
-      expired: {
-        clear: true,
-        intervalMs: 900000 // Clean expired sessions every 15 minutes
-      }
-    }),
-    secret: "HydraPanel_" + Math.random().toString(36).substring(2, 15),
-    resave: false,
-    saveUninitialized: false,
-    cookie: {
-      secure: config.mode === 'production',
-      httpOnly: true,
-      maxAge: 3600000, // 1 hour session timeout
-      sameSite: 'lax'
-    },
-    name: 'app.session', // Custom name instead of default connect.sid
-    rolling: true, // Reset expiration on activity
-    unset: 'destroy' // Completely remove session data when unset
-  })
-);
+// --- Session and Passport Setup ---
+// Session middleware - MUST BE BEFORE PASSPORT
+const sessionSecret = config.sessionSecret || "default_fallback_secret";
+app.use(session({
+  store: new SQLiteStore({
+    db: 'sessions.db',
+    dir: '.'
+  }),
+  secret: sessionSecret,
+  resave: true,
+  saveUninitialized: true,
+  cookie: {
+    secure: false,
+    httpOnly: true,
+    maxAge: 3600000
+  },
+  name: 'app.session'
+}));
+log.info("Express session middleware configured.");
 
-// Global middleware to detect and handle zombie sessions
+// Passport initialization - MUST BE AFTER SESSION
+app.use(passport.initialize());
+app.use(passport.session()); // Handles req.user, req.isAuthenticated, etc.
+log.info("Passport middleware initialized.");
+
+// Translation middleware - AFTER PASSPORT (Temporarily disabled)
+// app.use(translationMiddleware);
+
+// Authenticate routes that need protection (Temporarily disabled - rely on passport.session())
+/*
+app.use('/instance', (req, res, next) => {
+  if (!req.isAuthenticated()) {
+    log.warn(`Unauthorized access attempt to /instance route: ${req.path}`);
+    return res.redirect('/login?err=AuthRequired');
+  }
+  next();
+});
+
+app.use('/instances', (req, res, next) => {
+  if (!req.isAuthenticated()) {
+    log.warn(`Unauthorized access attempt to /instances route: ${req.path}`);
+    return res.redirect('/login?err=AuthRequired');
+  }
+  next();
+});
+*/
+
+// Additional security for protected routes (Temporarily disabled)
+/*
 app.use((req, res, next) => {
-  // Debug zombie sessions
+  const url = req.originalUrl || req.url;
+  if (url === '/instances' || url.startsWith('/instances/') || 
+      url === '/instance' || url.startsWith('/instance/')) {
+    if (!req.isAuthenticated()) {
+      log.warn(`Blocked direct access attempt to protected URL: ${url}`);
+      return res.redirect(`/login?blocked=true&from=${encodeURIComponent(url)}`);
+    }
+  }
+  next();
+});
+*/
+
+// Zombie session detection (Temporarily disabled)
+/*
+app.use((req, res, next) => {
   const hasSessionButNoUser = req.session && !req.isAuthenticated();
   const hasSessionWithoutPassport = req.session && !req.session.passport;
   
   if (hasSessionButNoUser || hasSessionWithoutPassport) {
-    console.log('Detected zombie session, cleaning up...');
-    
-    // Clear session and cookies
+    log.warn('Detected zombie session, cleaning up...');
     req.session.destroy(err => {
       if (err) console.error('Error destroying zombie session:', err);
       
@@ -126,36 +134,35 @@ app.use((req, res, next) => {
       res.clearCookie('sid', { path: '/' });
       
       if (req.path !== '/login' && req.path !== '/' && !req.path.startsWith('/auth/')) {
-        // Redirect to login for non-public routes
-        console.log('Redirecting from zombie session page:', req.path);
         return res.redirect('/login?err=SessionCleanup');
       }
-      
       next();
     });
   } else {
     next();
   }
 });
+*/
 
+// Add locals for templates
 app.use(async (req, res, next) => {
   try {
-    const settings = await db.get('settings');
-
+    const settings = await db.get('settings') || {};
     res.locals.languages = getlanguages();
     res.locals.ogTitle = config.ogTitle;
     res.locals.ogDescription = config.ogDescription;
-    res.locals.footer = settings.footer;
+    res.locals.footer = settings.footer || '';
     res.locals.theme = theme;
     next();
   } catch (error) {
     console.error('Error fetching settings:', error);
-    next(error);
+    next(); // Continue even if settings fail
   }
 });
 
-
-if (config.mode === 'production' || false) {
+// Production mode headers (Temporarily disabled)
+/*
+if (config.mode === 'production') {
   app.use((req, res, next) => {
     res.setHeader('Cache-Control', 'no-store');
     res.setHeader('Pragma', 'no-cache');
@@ -168,132 +175,159 @@ if (config.mode === 'production' || false) {
     next();
   });
 }
+*/
 
-// Initialize passport with improved security
-const passportSecret = Math.random().toString(36).substring(2, 15) + 
-                       Math.random().toString(36).substring(2, 15);
-
-app.use(passport.initialize({
-  userProperty: 'user', // Use a non-default property name
-}));
-
-app.use(passport.session({
-  pauseStream: true // Improve security by not allowing streaming
-}));
-
-// MOVE PROTECTION MIDDLEWARE HERE - BEFORE ROUTES ARE LOADED
-// Additional middleware that specifically protects all instance routes
-app.use('/instance', (req, res, next) => {
-  if (!req.isAuthenticated() || !req.user) {
-    console.log('Unauthorized access attempt to protected route:', req.path);
-    return res.redirect('/login?err=AuthRequired');
-  }
-  next();
-});
-
-// Same for instances routes
-app.use('/instances', (req, res, next) => {
-  if (!req.isAuthenticated() || !req.user) {
-    console.log('Unauthorized access attempt to protected route:', req.path);
-    return res.redirect('/login?err=AuthRequired');
-  }
-  next();
-});
+// Plugin setup
+let loadedPlugins = loadPlugins(path.join(__dirname, './plugins'));
+let pluginConfigs = Object.values(loadedPlugins).map(plugin => plugin.config);
 
 const pluginRoutes = require('./plugins/pluginmanager.js');
 app.use("/", pluginRoutes);
 const pluginDir = path.join(__dirname, 'plugins');
-const PluginViewsDir = fs.readdirSync(pluginDir).map(addonName => path.join(pluginDir, addonName, 'views'));
-app.set('views', [path.join(__dirname, 'views'), ...PluginViewsDir]);
+const pluginViewDirs = fs.readdirSync(pluginDir)
+  .map(addonName => path.join(pluginDir, addonName, 'views'))
+  .filter(viewDir => fs.existsSync(viewDir)); // Ensure view directory exists
+app.set('views', [path.join(__dirname, 'views'), ...pluginViewDirs]);
 
-// Init
+// Initialize application data (like default settings if needed)
 init();
 
-// Log the ASCII
+// Log the ASCII banner
 console.log(chalk.gray(ascii) + chalk.white(`version v${config.version}\n`));
 
-/**
- * Dynamically loads all route modules from the 'routes' directory, applying WebSocket support to each.
- * Logs the loaded routes and mounts them to the Express application under the root path. This allows for
- * modular route definitions that can be independently maintained and easily scaled.
- */
+// Load routes dynamically
 const routesDir = path.join(__dirname, 'routes');
-
-function getlanguages() {
-  return fs.readdirSync(__dirname + '/lang').map(file => file.split('.')[0])
-}
-
-function getlangname() {
-  return fs.readdirSync(path.join(__dirname, '/lang')).map(file => {
-    const langFilePath = path.join(__dirname, '/lang', file);
-    const langFileContent = JSON.parse(fs.readFileSync(langFilePath, 'utf-8'));
-    return langFileContent.langname;
-  });
-}
-
-app.get('/setLanguage', async (req, res) => {
-  const lang = req.query.lang;
-  if (lang && (await getlanguages()).includes(lang)) {
-      res.cookie('lang', lang, { maxAge: 90000000, httpOnly: true, sameSite: 'strict' });
-      req.user.lang = lang; // Update user language preference
-      res.json({ success: true });
-  } else {
-      res.json({ success: false });
-  }
-});
-
-function loadRoutes(directory) {
-  fs.readdirSync(directory).forEach(file => {
-    const fullPath = path.join(directory, file);
-    const stat = fs.statSync(fullPath);
-
-    if (stat.isDirectory()) {
-      // Recursively load routes from subdirectories
-      loadRoutes(fullPath);
-    } else if (stat.isFile() && path.extname(file) === '.js') {
-      // Only require .js files
-      const route = require(fullPath);
-      // log.init('loaded route: ' + fullPath);
-      expressWs.applyTo(route);
-      app.use("/", route);
-    }
-  });
-}
-
-// Start loading routes from the root routes directory
 loadRoutes(routesDir);
+log.info("Application routes loaded.")
 
-/**
- * Configures the Express application to serve static files from the 'public' directory, providing
- * access to client-side resources like images, JavaScript files, and CSS stylesheets without additional
- * routing. The server then starts listening on a port defined in the configuration file, logging the port
- * number to indicate successful startup.
- */
+// Serve static files from 'public' directory
 app.use(express.static('public'));
 
-// LAST RESORT SECURITY CHECK - RIGHT BEFORE 404 HANDLER
+// Last resort security check before 404
 app.use((req, res, next) => {
   const url = req.originalUrl || req.url;
-  
-  // Check one more time for instances routes
   if (url === '/instances' || url.startsWith('/instances/') || 
       url === '/instance' || url.startsWith('/instance/')) {
-    
-    if (!req.user) {
-      console.log(`⚠️ LAST DEFENSE: Caught unauthorized access to ${url}`);
+    if (!req.user) { // Checking req.user is more reliable here after passport runs
+      log.error(`LAST DEFENSE: Caught unauthorized access to ${url}`);
       return res.redirect(`/login?critical=true&t=${Date.now()}`);
     }
   }
-  
   next();
 });
 
-app.listen(config.port, () => log.info(`DracoPanel is listening on port ${config.port}`));
+// Start the HTTP server
+const server = app.listen(config.port, () => log.info(`DracoPanel is listening on port ${config.port}`));
 
+// Apply WebSocket support AFTER server is created
+expressWs.getWss().on('connection', (ws, req) => {
+  log.info('WebSocket connection established');
+});
+
+// 404 handler for any routes not matched
 app.get('*', async function(req, res){
-  res.render('errors/404', {
-    req,
-    name: await db.get('name') || 'DracoPanel',
-    logo: await db.get('logo') || false
-  })
+  log.warn(`404 Not Found for route: ${req.path}`);
+  try {
+    res.status(404).render('errors/404', {
+      req,
+      name: await db.get('name') || 'DracoPanel',
+      logo: await db.get('logo') || false
+    });
+  } catch (err) {
+    log.error("Error rendering 404 page:", err);
+    res.status(500).send("Internal Server Error");
+  }
+});
+
+// --- Helper Functions ---
+function getlanguages() {
+  try {
+    const langDir = path.join(__dirname, '/lang');
+    if (!fs.existsSync(langDir)) return [];
+    return fs.readdirSync(langDir).map(file => file.split('.')[0]);
+  } catch (error) {
+    log.error('Error reading languages:', error);
+    return [];
+  }
+}
+
+function getlangname() {
+  try {
+    const langDir = path.join(__dirname, '/lang');
+    if (!fs.existsSync(langDir)) return [];
+    return fs.readdirSync(langDir).map(file => {
+      const langFilePath = path.join(langDir, file);
+      try {
+        const langFileContent = JSON.parse(fs.readFileSync(langFilePath, 'utf-8'));
+        return langFileContent.langname;
+      } catch (parseError) {
+        log.error(`Error parsing language file ${file}:`, parseError);
+        return null;
+      }
+    }).filter(name => name !== null); // Filter out nulls from failed parses
+  } catch (error) {
+    log.error('Error reading language names:', error);
+    return [];
+  }
+}
+
+// Language switcher route
+app.get('/setLanguage', async (req, res) => {
+  const lang = req.query.lang;
+  const availableLangs = getlanguages(); // No need for await here
+  if (lang && availableLangs.includes(lang)) {
+      res.cookie('lang', lang, { maxAge: 90000000, httpOnly: true, sameSite: 'strict' });
+      if (req.user) req.user.lang = lang; // Only update if user exists
+      res.json({ success: true });
+  } else {
+      res.status(400).json({ success: false, error: 'Invalid language' });
+  }
+});
+
+// Route loader function
+function loadRoutes(directory) {
+  fs.readdirSync(directory).forEach(file => {
+    const fullPath = path.join(directory, file);
+    try {
+      const stat = fs.statSync(fullPath);
+      if (stat.isDirectory()) {
+        loadRoutes(fullPath); // Recurse into subdirectories
+      } else if (stat.isFile() && path.extname(file) === '.js') {
+        const route = require(fullPath);
+        if (typeof route === 'function' || typeof route.router === 'function') {
+          
+          // Determine if this is the auth route
+          // Note: path.sep provides the correct directory separator ('\' on Windows, '/' on Linux/Mac)
+          const authRoutePath = path.join('routes', 'auth.js');
+          const isAuthRoute = fullPath.endsWith(authRoutePath);
+
+          // Apply WebSocket support specifically to routers, *except* auth.js
+          if (route.stack && !isAuthRoute) { 
+            log.info(`Applying WebSocket support to router: ${file}`); 
+            expressWs.applyTo(route);
+          } else if (isAuthRoute) {
+             log.info(`Skipping WebSocket support for auth router: ${file}`); 
+          }
+          
+          app.use("/", route); 
+        } else {
+          log.warn(`Skipping non-router module: ${file}`);
+        }
+      }
+    } catch (error) {
+      log.error(`Error loading route from ${fullPath}:`, error);
+    }
+  });
+}
+
+// Graceful shutdown
+process.on('SIGTERM', () => {
+  log.info('SIGTERM signal received: closing HTTP server');
+  server.close(() => {
+    log.info('HTTP server closed');
+    // Close database connections if necessary
+    if (sessionDb) sessionDb.close();
+    if (db && typeof db.close === 'function') db.close(); 
+    process.exit(0);
+  });
 });

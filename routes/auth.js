@@ -22,9 +22,9 @@ const scopes = ['identify', 'email'];
 
 const router = express.Router();
 
-// Initialize passport
-router.use(passport.initialize());
-router.use(passport.session());
+// Initialize Passport globally in index.js
+// router.use(passport.initialize());
+// router.use(passport.session());
 
 /**
  * Configures Passport's local strategy for user authentication. It checks the provided
@@ -77,8 +77,9 @@ passport.use(new DiscordStrategy({
   clientSecret: config.discord?.clientSecret || process.env.DISCORD_CLIENT_SECRET,
   callbackURL: config.discord?.callbackURL || process.env.DISCORD_CALLBACK_URL || '/auth/discord/callback',
   scope: scopes,
-  proxy: true // Enable proxy support for Cloudflare
-}, async (accessToken, refreshToken, profile, done) => {
+  proxy: true, // Enable proxy support for Cloudflare
+  passReqToCallback: true // Pass req object to the verify callback
+}, async (req, accessToken, refreshToken, profile, done) => {
   try {
     console.log("Discord login attempt:", profile.username);
     const users = await db.get('users') || [];
@@ -154,7 +155,8 @@ passport.use(new DiscordStrategy({
       console.log(`Existing Discord user logged in: ${user.username}`);
     }
     
-    return done(null, user);
+    // Pass user object but skip automatic login
+    return done(null, user, { skipLogIn: true }); 
   } catch (error) {
     console.error('Error in Discord authentication:', error);
     return done(error);
@@ -228,6 +230,7 @@ async function addUserToUsersTable(username, email, password, verified) {
  * @param {Function} done - A callback function to call with the username.
  */
 passport.serializeUser((user, done) => {
+  console.log("Serializing user:", user.username);
   done(null, user.username);
 });
 
@@ -239,21 +242,25 @@ passport.serializeUser((user, done) => {
  */
 passport.deserializeUser(async (username, done) => {
   try {
+    console.log("Deserializing user:", username);
     const users = await db.get('users');
     if (!users) {
-      throw new Error('User not found');
+      console.error("No users found in database during deserialization");
+      return done(new Error('No users found'), null);
     }
     
     // Search for the user with the provided username in the users array
     const foundUser = users.find(user => user.username === username);
 
     if (!foundUser) {
-      throw new Error('User not found');
+      console.error("User not found during deserialization:", username);
+      return done(new Error('User not found'), null);
     }
 
     done(null, foundUser); // Deserialize user by retrieving full user details from the database
   } catch (error) {
-    done(error);
+    console.error("Error deserializing user:", error);
+    done(error, null);
   }
 });
 
@@ -678,23 +685,54 @@ router.get("/auth/logout", (req, res, next) => {
 router.get('/auth/discord', (req, res, next) => {
   console.log("Starting Discord authentication...");
   // Store the origin URL for potential Cloudflare handling
-  req.session.authOrigin = req.headers.host;
+  if (req.session) {
+    req.session.authOrigin = req.headers.host;
+  }
   passport.authenticate('discord')(req, res, next);
 });
 
 router.get('/auth/discord/callback', (req, res, next) => {
   console.log("Received callback from Discord");
   // Use the origin from session if available (helps with Cloudflare)
-  const origin = req.session.authOrigin || req.headers.host;
+  const origin = (req.session && req.session.authOrigin) ? req.session.authOrigin : req.headers.host;
   console.log(`Auth origin: ${origin}`);
+
+  // Manually save session before passport authentication attempt
+  if (req.session) {
+    req.session.save(err => {
+      if (err) {
+        console.error('Error saving session before Discord auth:', err);
+        return next(err); // Handle error appropriately
+      }
+      // Proceed with Passport authentication only after session is saved
+      passport.authenticate('discord', { 
+        failureRedirect: '/login?err=DiscordAuthFailed&state=failed' 
+      })(req, res, next);
+    });
+  } else {
+    // If no session, proceed directly (might still fail if session is required)
+    passport.authenticate('discord', { 
+      failureRedirect: '/login?err=DiscordAuthFailed&state=failed' 
+    })(req, res, next);
+  }
+}, (req, res, next) => {
+  // Successful authentication, req.user should be populated by passport
+  // Manually log the user in
+  if (!req.user) {
+    // Should not happen if authenticate succeeded, but handle defensively
+    console.error('Discord auth succeeded but req.user is not set!');
+    return res.redirect('/login?err=InternalAuthError');
+  }
   
-  passport.authenticate('discord', { 
-    failureRedirect: '/login?err=DiscordAuthFailed&state=failed' 
-  })(req, res, next);
-}, (req, res) => {
-  // Successful authentication
-  console.log("Discord authentication successful, redirecting to instances");
-  res.redirect('/instances');
+  req.logIn(req.user, (err) => {
+    if (err) {
+      console.error('Error during manual Discord login:', err);
+      return next(err); // Pass error to Express error handler
+    }
+    // Session established, now redirect
+    console.log("Discord authentication successful, redirecting to instances");
+    return res.redirect('/instances');
+  });
 });
 
 initializeRoutes().catch(error => {
