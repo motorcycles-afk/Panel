@@ -8,8 +8,8 @@
     "ogDescription": "This is an instance of the DracoPanel - learn more at github.com/draco-labes",
     "sessionSecret": "sK3uQQpNHuZlKw1rGM6Lv9PBfRscx8Ty",
     "discord": {
-        "clientId": "1295758359013756978",
-        "clientSecret": "LEebznFRJNsF15-VNVT_GlnoizcG6vzi",
+        "clientId": "",
+        "clientSecret": "",
         "callbackURL": "http://localhost:3001/auth/discord/callback",
         "useLocal": true
     }
