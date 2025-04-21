@@ -81,8 +81,8 @@ app.use(passport.initialize());
 app.use(passport.session()); // Handles req.user, req.isAuthenticated, etc.
 log.info("Passport middleware initialized.");
 
-// Translation middleware - AFTER PASSPORT (Temporarily disabled)
-// app.use(translationMiddleware);
+// Translation middleware - AFTER PASSPORT
+app.use(translationMiddleware);
 
 // Authenticate routes that need protection (Temporarily disabled - rely on passport.session())
 /*
